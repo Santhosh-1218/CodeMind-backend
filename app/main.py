@@ -34,7 +34,7 @@ app = FastAPI(
 
 # CORS configuration
 raw_origins = [o.strip() for o in settings.FRONTEND_URL.split(",") if o.strip()]
-origins = list(dict.fromkeys(raw_origins + ["http://localhost:3000", "http://127.0.0.1:3000"]))
+origins = list(dict.fromkeys(raw_origins + ["https://codemind-1218.vercel.app", "http://localhost:3000", "http://127.0.0.1:3000"]))
 
 app.add_middleware(
     CORSMiddleware,

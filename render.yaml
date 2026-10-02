@@ -8,7 +8,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: FRONTEND_URL
-        sync: false
+        value: https://codemind-1218.vercel.app
       - key: BACKEND_URL
         sync: false
       - key: GROQ_API_KEY

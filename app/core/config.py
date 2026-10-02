@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
     
-    FRONTEND_URL: str = "http://localhost:3000"
+    FRONTEND_URL: str = "https://codemind-1218.vercel.app"
     BACKEND_URL: str = "http://localhost:8000"
 
     @property
