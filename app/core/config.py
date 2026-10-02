@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
     
     FRONTEND_URL: str = "https://codemind-1218.vercel.app"
-    BACKEND_URL: str = "http://localhost:8000"
+    BACKEND_URL: str = "https://codemind-backend-sb3h.onrender.com"
 
     @property
     def github_client_id_clean(self) -> str:
