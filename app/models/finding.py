@@ -23,6 +23,10 @@ class Finding(Base):
     evidence = Column(Text, nullable=True) # JSON list of evidence points
     memory_influenced = Column(Boolean, default=False)
     hindsight_memory_text = Column(Text, nullable=True)
+    owasp_category = Column(String, nullable=True) # e.g. OWASP A03:2021-Injection
+    cwe_id = Column(String, nullable=True) # e.g. CWE-89
+    status = Column(String, default="open") # open, in_progress, resolved, false_positive
+    assigned_to = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     review = relationship("Review", back_populates="findings")

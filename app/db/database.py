@@ -57,7 +57,11 @@ def init_db():
                     "confidence": "INTEGER DEFAULT 85",
                     "evidence": "TEXT",
                     "memory_influenced": "BOOLEAN DEFAULT 0",
-                    "hindsight_memory_text": "TEXT"
+                    "hindsight_memory_text": "TEXT",
+                    "owasp_category": "TEXT",
+                    "cwe_id": "TEXT",
+                    "status": "TEXT DEFAULT 'open'",
+                    "assigned_to": "TEXT"
                 }
                 for col, col_type in needed_cols.items():
                     if col not in existing_cols:

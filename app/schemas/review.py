@@ -23,6 +23,10 @@ class FindingResponse(BaseModel):
     evidence: List[str] = []
     memory_influenced: bool = False
     hindsight_memory_text: Optional[str] = None
+    owasp_category: Optional[str] = None
+    cwe_id: Optional[str] = None
+    status: str = "open"
+    assigned_to: Optional[str] = None
 
 class ReviewFileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -72,3 +76,7 @@ class ReviewStatusResponse(BaseModel):
     maintainability_score: float
     file_count: int
     completed_at: Optional[datetime] = None
+
+class UpdateFindingStatusRequest(BaseModel):
+    status: Optional[str] = None # open, in_progress, resolved, false_positive
+    assigned_to: Optional[str] = None
