@@ -2,8 +2,8 @@ import os
 import zipfile
 from typing import Tuple
 
-MAX_ZIP_SIZE_BYTES = 25 * 1024 * 1024 # 25 MB
-MAX_UNCOMPRESSED_SIZE_BYTES = 100 * 1024 * 1024 # 100 MB
+MAX_ZIP_SIZE_BYTES = 50 * 1024 * 1024 # 50 MB
+MAX_UNCOMPRESSED_SIZE_BYTES = 250 * 1024 * 1024 # 250 MB
 
 def is_safe_zip(zip_file: zipfile.ZipFile, target_dir: str) -> Tuple[bool, str]:
     """

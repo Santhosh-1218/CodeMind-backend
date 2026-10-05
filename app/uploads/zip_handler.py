@@ -13,7 +13,7 @@ def process_zip_upload(file_bytes: bytes, target_dir: str) -> Tuple[bool, str]:
     Safely validate and extract uploaded ZIP bytes into target_dir.
     """
     if len(file_bytes) > MAX_ZIP_SIZE_BYTES:
-        return False, "File size exceeds maximum allowed upload size (25MB)."
+        return False, "File size exceeds maximum allowed upload size (50MB)."
 
     try:
         with zipfile.ZipFile(io.BytesIO(file_bytes)) as zf:
