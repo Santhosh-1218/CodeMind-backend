@@ -452,3 +452,18 @@ async def create_auto_fix_pr(
         "finding_id": finding.id,
         "status": "in_progress"
     }
+
+@router.delete("/{review_id}")
+def delete_review(
+    review_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    review = db.query(Review).filter(Review.id == review_id, Review.user_id == current_user.id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found.")
+
+    db.delete(review)
+    db.commit()
+    return {"message": "Review deleted successfully"}
+
