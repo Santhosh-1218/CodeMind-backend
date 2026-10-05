@@ -8,6 +8,7 @@ import logging
 import subprocess
 from typing import Tuple, Optional
 from app.github.validator import validate_github_url
+from app.core.config import settings
 
 logger = logging.getLogger("codemind.github.repository")
 
