@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     BACKEND_URL: str = "https://codemind-backend-sb3h.onrender.com"
 
     @property
+    def frontend_url_clean(self) -> str:
+        url = get_env_val("FRONTEND_URL", self.FRONTEND_URL).strip().rstrip('/')
+        return url
+
+    @property
+    def backend_url_clean(self) -> str:
+        url = get_env_val("BACKEND_URL", self.BACKEND_URL).strip().rstrip('/')
+        if url.endswith("/api"):
+            url = url[:-4]
+        return url.rstrip('/')
+
+    @property
     def github_client_id_clean(self) -> str:
         return get_env_val("GITHUB_CLIENT_ID", self.GITHUB_CLIENT_ID)
 

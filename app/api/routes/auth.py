@@ -16,6 +16,18 @@ from app.schemas.auth import RegisterRequest, LoginRequest, AuthResponse, UserPr
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+def set_session_cookie(response: Response, token: str):
+    """Sets session cookie with proper cross-site settings for production HTTPS environments."""
+    is_https = settings.backend_url_clean.startswith("https")
+    response.set_cookie(
+        key="codemind_session",
+        value=token,
+        httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite="none" if is_https else "lax",
+        secure=is_https
+    )
+
 def create_db_session(db: Session, user_id: str) -> str:
     """Create a persistent user session in SQLite database."""
     token = create_access_token(user_id)
@@ -93,13 +105,7 @@ def register(req: RegisterRequest, response: Response, db: Session = Depends(get
     db.refresh(user)
 
     token = create_db_session(db, user.id)
-    response.set_cookie(
-        key="codemind_session",
-        value=token,
-        httponly=True,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="lax"
-    )
+    set_session_cookie(response, token)
 
     return AuthResponse(
         token=token,
@@ -120,13 +126,7 @@ def login(req: LoginRequest, response: Response, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid email or password.")
 
     token = create_db_session(db, user.id)
-    response.set_cookie(
-        key="codemind_session",
-        value=token,
-        httponly=True,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="lax"
-    )
+    set_session_cookie(response, token)
 
     return AuthResponse(
         token=token,
@@ -152,7 +152,8 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
         db.query(UserSession).filter(UserSession.token == token).delete()
         db.commit()
 
-    response.delete_cookie("codemind_session")
+    is_https = settings.backend_url_clean.startswith("https")
+    response.delete_cookie("codemind_session", samesite="none" if is_https else "lax", secure=is_https)
     return {"message": "Logged out successfully"}
 
 @router.get("/me", response_model=UserProfile)
@@ -173,24 +174,24 @@ def me(current_user: User = Depends(get_current_user)):
 def github_login():
     client_id = settings.github_client_id_clean
     if not client_id:
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=github_oauth_missing_config")
+        return RedirectResponse(f"{settings.frontend_url_clean}/login?error=github_oauth_missing_config")
 
-    redirect_uri = f"{settings.BACKEND_URL.rstrip('/')}/api/auth/github/callback"
+    redirect_uri = f"{settings.backend_url_clean}/api/auth/github/callback"
     github_url = f"https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}&scope=user:email"
     return RedirectResponse(github_url)
 
 @router.get("/github/callback")
 async def github_callback(code: Optional[str] = None, error: Optional[str] = None, db: Session = Depends(get_db)):
     if error or not code:
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=github_oauth_cancelled")
+        return RedirectResponse(f"{settings.frontend_url_clean}/login?error=github_oauth_cancelled")
 
     client_id = settings.github_client_id_clean
     client_secret = settings.github_client_secret_clean
 
     if not client_id or not client_secret:
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=github_oauth_missing_config")
+        return RedirectResponse(f"{settings.frontend_url_clean}/login?error=github_oauth_missing_config")
 
-    redirect_uri = f"{settings.BACKEND_URL.rstrip('/')}/api/auth/github/callback"
+    redirect_uri = f"{settings.backend_url_clean}/api/auth/github/callback"
     token_url = "https://github.com/login/oauth/access_token"
 
     async with httpx.AsyncClient() as client:
@@ -207,7 +208,7 @@ async def github_callback(code: Optional[str] = None, error: Optional[str] = Non
         data = res.json()
         access_token = data.get("access_token")
         if not access_token:
-            return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=github_oauth_failed")
+            return RedirectResponse(f"{settings.frontend_url_clean}/login?error=github_oauth_failed")
 
         user_res = await client.get(
             "https://api.github.com/user",
@@ -255,23 +256,17 @@ async def github_callback(code: Optional[str] = None, error: Optional[str] = Non
         db.commit()
 
     token = create_db_session(db, user.id)
-    response = RedirectResponse(f"{settings.FRONTEND_URL}/app?token={token}")
-    response.set_cookie(
-        key="codemind_session",
-        value=token,
-        httponly=True,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="lax"
-    )
+    response = RedirectResponse(f"{settings.frontend_url_clean}/app?token={token}")
+    set_session_cookie(response, token)
     return response
 
 @router.get("/google")
 def google_login():
     client_id = settings.google_client_id_clean
     if not client_id:
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=google_oauth_missing_config")
+        return RedirectResponse(f"{settings.frontend_url_clean}/login?error=google_oauth_missing_config")
 
-    redirect_uri = f"{settings.BACKEND_URL.rstrip('/')}/api/auth/google/callback"
+    redirect_uri = f"{settings.backend_url_clean}/api/auth/google/callback"
     google_url = (
         f"https://accounts.google.com/o/oauth2/v2/auth?"
         f"client_id={client_id}&"
@@ -284,15 +279,15 @@ def google_login():
 @router.get("/google/callback")
 async def google_callback(code: Optional[str] = None, error: Optional[str] = None, db: Session = Depends(get_db)):
     if error or not code:
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=google_oauth_cancelled")
+        return RedirectResponse(f"{settings.frontend_url_clean}/login?error=google_oauth_cancelled")
 
     client_id = settings.google_client_id_clean
     client_secret = settings.google_client_secret_clean
 
     if not client_id or not client_secret:
-        return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=google_oauth_missing_config")
+        return RedirectResponse(f"{settings.frontend_url_clean}/login?error=google_oauth_missing_config")
 
-    redirect_uri = f"{settings.BACKEND_URL.rstrip('/')}/api/auth/google/callback"
+    redirect_uri = f"{settings.backend_url_clean}/api/auth/google/callback"
     token_url = "https://oauth2.googleapis.com/token"
     async with httpx.AsyncClient() as client:
         res = await client.post(
@@ -308,7 +303,7 @@ async def google_callback(code: Optional[str] = None, error: Optional[str] = Non
         data = res.json()
         access_token = data.get("access_token")
         if not access_token:
-            return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=google_oauth_failed")
+            return RedirectResponse(f"{settings.frontend_url_clean}/login?error=google_oauth_failed")
 
         user_res = await client.get(
             "https://www.googleapis.com/oauth2/v2/userinfo",
@@ -318,7 +313,7 @@ async def google_callback(code: Optional[str] = None, error: Optional[str] = Non
         g_id = str(g_user.get("id"))
         email = g_user.get("email")
         if not email:
-            return RedirectResponse(f"{settings.FRONTEND_URL}/login?error=google_email_missing")
+            return RedirectResponse(f"{settings.frontend_url_clean}/login?error=google_email_missing")
 
         name = g_user.get("name") or "Google User"
         avatar = g_user.get("picture")
@@ -339,13 +334,7 @@ async def google_callback(code: Optional[str] = None, error: Optional[str] = Non
         db.commit()
 
     token = create_db_session(db, user.id)
-    response = RedirectResponse(f"{settings.FRONTEND_URL}/app?token={token}")
-    response.set_cookie(
-        key="codemind_session",
-        value=token,
-        httponly=True,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="lax"
-    )
+    response = RedirectResponse(f"{settings.frontend_url_clean}/app?token={token}")
+    set_session_cookie(response, token)
     return response
 
