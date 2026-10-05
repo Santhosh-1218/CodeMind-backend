@@ -244,7 +244,6 @@ async def github_callback(code: Optional[str] = None, error: Optional[str] = Non
     if oauth:
         user = oauth.user
         oauth.access_token = access_token
-        db.commit()
     else:
         user = db.query(User).filter(User.email == email).first()
         if not user:
@@ -255,7 +254,15 @@ async def github_callback(code: Optional[str] = None, error: Optional[str] = Non
 
         oauth = OAuthAccount(user_id=user.id, provider="github", provider_user_id=gh_id, access_token=access_token)
         db.add(oauth)
-        db.commit()
+
+    # Sync active user profile details (provider, avatar, name) to matching GitHub login
+    user.provider = "github"
+    if avatar:
+        user.avatar_url = avatar
+    if name:
+        user.full_name = name
+    db.commit()
+    db.refresh(user)
 
     token = create_db_session(db, user.id)
     response = RedirectResponse(f"{settings.frontend_url_clean}/app?token={token}")
@@ -323,6 +330,7 @@ async def google_callback(code: Optional[str] = None, error: Optional[str] = Non
     oauth = db.query(OAuthAccount).filter(OAuthAccount.provider == "google", OAuthAccount.provider_user_id == g_id).first()
     if oauth:
         user = oauth.user
+        oauth.access_token = access_token
     else:
         user = db.query(User).filter(User.email == email).first()
         if not user:
@@ -331,9 +339,17 @@ async def google_callback(code: Optional[str] = None, error: Optional[str] = Non
             db.commit()
             db.refresh(user)
 
-        oauth = OAuthAccount(user_id=user.id, provider="google", provider_user_id=g_id)
+        oauth = OAuthAccount(user_id=user.id, provider="google", provider_user_id=g_id, access_token=access_token)
         db.add(oauth)
-        db.commit()
+
+    # Sync active user profile details (provider, avatar, name) to matching Google login
+    user.provider = "google"
+    if avatar:
+        user.avatar_url = avatar
+    if name:
+        user.full_name = name
+    db.commit()
+    db.refresh(user)
 
     token = create_db_session(db, user.id)
     response = RedirectResponse(f"{settings.frontend_url_clean}/app?token={token}")
