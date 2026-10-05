@@ -11,6 +11,7 @@ class OAuthAccount(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     provider = Column(String, nullable=False) # google, github
     provider_user_id = Column(String, nullable=False)
+    access_token = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="oauth_accounts")

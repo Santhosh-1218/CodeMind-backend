@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db, SessionLocal
 from app.models.user import User
+from app.models.oauth_account import OAuthAccount
 from app.models.project import Project
 from app.models.review import Review
 from app.schemas.review import ReviewCreateGitHub, ReviewResponse, ReviewStatusResponse, FindingResponse, ReviewFileResponse
@@ -50,12 +51,19 @@ async def create_github_review(
         db.commit()
         db.refresh(project)
 
+    # Check for user's GitHub OAuth token for private repo access
+    github_oauth = db.query(OAuthAccount).filter(
+        OAuthAccount.user_id == current_user.id,
+        OAuthAccount.provider == "github"
+    ).first()
+    github_token = github_oauth.access_token if github_oauth else None
+
     # Create review record
     review = Review(
         project_id=project.id,
         user_id=current_user.id,
         status="Queued",
-        status_message="Queued public GitHub repository download..."
+        status_message="Queued GitHub repository download..."
     )
     db.add(review)
     db.commit()
@@ -72,10 +80,10 @@ async def create_github_review(
             rev = async_db.query(Review).filter(Review.id == review_id).first()
             if rev:
                 rev.status = "Downloading"
-                rev.status_message = f"Downloading public repository '{project_title}'..."
+                rev.status_message = f"Downloading repository '{project_title}'..."
                 async_db.commit()
 
-            success, msg = await download_github_repository(req.repo_url, temp_dir)
+            success, msg = await download_github_repository(req.repo_url, temp_dir, access_token=github_token)
             if not success:
                 rev = async_db.query(Review).filter(Review.id == review_id).first()
                 if rev:

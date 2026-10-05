@@ -177,7 +177,7 @@ def github_login():
         return RedirectResponse(f"{settings.frontend_url_clean}/login?error=github_oauth_missing_config")
 
     redirect_uri = f"{settings.backend_url_clean}/api/auth/github/callback"
-    github_url = f"https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}&scope=user:email"
+    github_url = f"https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}&scope=user:email,repo"
     return RedirectResponse(github_url)
 
 @router.get("/github/callback")
@@ -243,6 +243,8 @@ async def github_callback(code: Optional[str] = None, error: Optional[str] = Non
     oauth = db.query(OAuthAccount).filter(OAuthAccount.provider == "github", OAuthAccount.provider_user_id == gh_id).first()
     if oauth:
         user = oauth.user
+        oauth.access_token = access_token
+        db.commit()
     else:
         user = db.query(User).filter(User.email == email).first()
         if not user:
@@ -251,7 +253,7 @@ async def github_callback(code: Optional[str] = None, error: Optional[str] = Non
             db.commit()
             db.refresh(user)
 
-        oauth = OAuthAccount(user_id=user.id, provider="github", provider_user_id=gh_id)
+        oauth = OAuthAccount(user_id=user.id, provider="github", provider_user_id=gh_id, access_token=access_token)
         db.add(oauth)
         db.commit()
 

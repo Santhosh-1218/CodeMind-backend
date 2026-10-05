@@ -62,6 +62,12 @@ def init_db():
                 for col, col_type in needed_cols.items():
                     if col not in existing_cols:
                         cursor.execute(f"ALTER TABLE findings ADD COLUMN {col} {col_type}")
+
+                cursor.execute("PRAGMA table_info(oauth_accounts)")
+                oauth_cols = [row[1] for row in cursor.fetchall()]
+                if "access_token" not in oauth_cols:
+                    cursor.execute("ALTER TABLE oauth_accounts ADD COLUMN access_token TEXT")
+
                 conn.commit()
                 conn.close()
             except Exception as e:
