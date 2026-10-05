@@ -14,20 +14,22 @@ logger = logging.getLogger("codemind.github.repository")
 async def download_github_repository(repo_url: str, target_dir: str, access_token: Optional[str] = None) -> Tuple[bool, str]:
     """
     Safely download and extract a GitHub repository into target_dir.
-    Supports public repositories and authenticated private repos (if access_token provided).
+    Supports public repositories and authenticated private repos (if access_token or server GITHUB_TOKEN is provided).
     Returns (success, message).
     """
     is_valid, owner, repo, err_msg = validate_github_url(repo_url)
     if not is_valid:
         return False, err_msg
 
+    token_to_use = access_token or (os.getenv("GITHUB_TOKEN") or settings.GITHUB_TOKEN or "").strip()
+
     downloaded = False
     headers = {
         "User-Agent": "CodeMind-AI-Review-Agent",
         "Accept": "application/vnd.github+json"
     }
-    if access_token:
-        headers["Authorization"] = f"token {access_token}"
+    if token_to_use:
+        headers["Authorization"] = f"Bearer {token_to_use}"
 
     # Primary approach: API Zipball
     zip_urls = [
@@ -39,14 +41,22 @@ async def download_github_repository(repo_url: str, target_dir: str, access_toke
     for zip_url in zip_urls:
         logger.info(f"Attempting download of GitHub repo archive: {zip_url}")
         try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=60.0, headers=headers) as client:
-                res = await client.get(zip_url)
+            async with httpx.AsyncClient(follow_redirects=False, timeout=60.0) as client:
+                res = await client.get(zip_url, headers=headers)
+                # Manually follow 302/301 redirects to preserve Authorization header across domains
+                if res.status_code in (301, 302, 307, 308):
+                    redirect_url = res.headers.get("location")
+                    if redirect_url:
+                        res = await client.get(redirect_url, headers=headers)
+
                 if res.status_code == 200 and len(res.content) > 0:
                     with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
                         zf.extractall(target_dir)
                     downloaded = True
                     logger.info(f"Successfully downloaded and extracted GitHub archive for {owner}/{repo}")
                     break
+                else:
+                    logger.info(f"Zip download returned status {res.status_code} for URL '{zip_url}'")
         except Exception as e:
             logger.info(f"Failed zip download for URL '{zip_url}': {e}")
 
@@ -55,8 +65,8 @@ async def download_github_repository(repo_url: str, target_dir: str, access_toke
         logger.info(f"Falling back to git clone --depth 1 for {repo_url}")
         try:
             clone_dir = os.path.join(target_dir, "_git_clone_tmp")
-            if access_token:
-                clone_url = f"https://x-access-token:{access_token}@github.com/{owner}/{repo}.git"
+            if token_to_use:
+                clone_url = f"https://{token_to_use}@github.com/{owner}/{repo}.git"
             else:
                 clone_url = f"https://github.com/{owner}/{repo}.git"
 
@@ -79,14 +89,15 @@ async def download_github_repository(repo_url: str, target_dir: str, access_toke
                 downloaded = True
             else:
                 err_text = res.stderr if res.stderr else "Git clone failed"
-                if any(k in err_text for k in ["could not read Username", "Authentication failed", "Repository not found", "terminal prompts disabled", "404"]):
-                    return False, f"Could not access repository '{owner}/{repo}'. Please ensure the URL is correct and the repository is public (or upload as ZIP)."
-                return False, f"Could not clone repository: {err_text[:180]}"
+                logger.info(f"Git clone stderr: {err_text}")
+                if not token_to_use:
+                    return False, f"Could not access private repository '{owner}/{repo}'. Please sign out and click 'Continue with GitHub' to grant repository access (or upload as ZIP)."
+                return False, f"Could not access repository '{owner}/{repo}'. Please check repository URL & permissions (or upload as ZIP)."
         except Exception as e:
             return False, f"Failed to download repository: {e}"
 
     if not downloaded:
-        return False, "Failed to download GitHub repository. Ensure the repository URL is correct and public (or upload as ZIP)."
+        return False, f"Failed to download repository '{owner}/{repo}'. Ensure the repository URL is correct and public or grant GitHub permissions (or upload as ZIP)."
 
     # If extracted folder has a single top-level folder e.g. repo-main, move contents up
     extracted_items = [i for i in os.listdir(target_dir) if i != "_git_clone_tmp"]

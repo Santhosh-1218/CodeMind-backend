@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     # OAuth Keys
     GITHUB_CLIENT_ID: str = ""
     GITHUB_CLIENT_SECRET: str = ""
+    GITHUB_TOKEN: str = ""
     
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
