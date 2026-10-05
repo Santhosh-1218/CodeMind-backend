@@ -38,3 +38,25 @@ def get_history_summary(current_user: User = Depends(get_current_user), db: Sess
             for r in reviews
         ]
     }
+
+@router.delete("/clear")
+def clear_all_history(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    reviews = db.query(Review).filter(Review.user_id == current_user.id).all()
+    for r in reviews:
+        db.delete(r)
+    projects = db.query(Project).filter(Project.user_id == current_user.id).all()
+    for p in projects:
+        db.delete(p)
+    db.commit()
+    return {"message": "All past review history cleared successfully."}
+
+@router.delete("/{review_id}")
+def delete_single_review(review_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    review = db.query(Review).filter(Review.id == review_id, Review.user_id == current_user.id).first()
+    if not review:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Review not found.")
+    db.delete(review)
+    db.commit()
+    return {"message": "Review deleted successfully.", "review_id": review_id}
+
