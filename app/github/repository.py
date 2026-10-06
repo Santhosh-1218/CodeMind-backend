@@ -44,11 +44,15 @@ async def download_github_repository(repo_url: str, target_dir: str, access_toke
         try:
             async with httpx.AsyncClient(follow_redirects=False, timeout=60.0) as client:
                 res = await client.get(zip_url, headers=headers)
-                # Manually follow 302/301 redirects to preserve Authorization header across domains
+                # Manually follow 302/301 redirects to preserve access across S3 / codeload presigned URLs
                 if res.status_code in (301, 302, 307, 308):
                     redirect_url = res.headers.get("location")
                     if redirect_url:
                         res = await client.get(redirect_url, headers=headers)
+                        # If S3 / codeload returns 400/403 because presigned URL rejects Authorization header
+                        if res.status_code in (400, 403) and token_to_use:
+                            no_auth_headers = {k: v for k, v in headers.items() if k.lower() != "authorization"}
+                            res = await client.get(redirect_url, headers=no_auth_headers)
 
                 if res.status_code == 200 and len(res.content) > 0:
                     with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
@@ -67,7 +71,7 @@ async def download_github_repository(repo_url: str, target_dir: str, access_toke
         try:
             clone_dir = os.path.join(target_dir, "_git_clone_tmp")
             if token_to_use:
-                clone_url = f"https://{token_to_use}@github.com/{owner}/{repo}.git"
+                clone_url = f"https://x-access-token:{token_to_use}@github.com/{owner}/{repo}.git"
             else:
                 clone_url = f"https://github.com/{owner}/{repo}.git"
 
